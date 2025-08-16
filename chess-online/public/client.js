@@ -1,11 +1,13 @@
 'use strict';
 
 (function () {
-  const socket = io({ transports: ['websocket', 'polling'] });
+  const socket = io({ 
+    transports: ['websocket', 'polling'],
+    timeout: 20000,
+    forceNew: true
+  });
 
-  const roomMatch = window.location.pathname.match(/\/r\/([a-zA-Z0-9_-]+)/);
-  const roomId = roomMatch ? roomMatch[1] : '';
-
+  // Инициализация элементов DOM в самом начале
   const boardEl = document.getElementById('board');
   const roomLinkEl = document.getElementById('roomLink');
   const copyBtn = document.getElementById('copyLink');
@@ -15,6 +17,71 @@
   const messagesEl = document.getElementById('messages');
   const resignBtn = document.getElementById('resignBtn');
   const restartBtn = document.getElementById('restartBtn');
+
+  // Функция показа сообщений
+  function showMessage(text) {
+    if (messagesEl) {
+      messagesEl.textContent = text || '';
+      if (!text) return;
+      setTimeout(() => { if (messagesEl.textContent === text) messagesEl.textContent = ''; }, 3000);
+    }
+  }
+
+  const roomMatch = window.location.pathname.match(/\/r\/([a-zA-Z0-9_-]+)/);
+  const roomId = roomMatch ? roomMatch[1] : '';
+
+  // Проверяем, есть ли корректный roomId
+  if (!roomId) {
+    // Если нет roomId и мы не на главной странице, перенаправляем на главную
+    if (window.location.pathname !== '/') {
+      window.location.href = '/';
+      return;
+    }
+    // Если мы на главной странице, показываем сообщение и ждем редирект
+    showMessage('Создание новой комнаты...');
+    
+    // Попробуем сделать запрос к серверу для создания комнаты
+    fetch('/')
+      .then(response => {
+        if (response.redirected) {
+          // Если сервер сделал редирект, переходим по новому URL
+          window.location.href = response.url;
+        } else {
+          // Если редирект не произошел, перезагружаем страницу
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        }
+      })
+      .catch(error => {
+        console.error('Ошибка при создании комнаты:', error);
+        // В случае ошибки перезагружаем страницу
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      });
+    return;
+  }
+
+  // Дополнительная валидация формата roomId
+  if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
+    showMessage('Некорректный формат идентификатора комнаты');
+    window.location.href = '/';
+    return;
+  }
+
+  // Проверка длины roomId
+  if (roomId.length < 3 || roomId.length > 50) {
+    showMessage('Некорректная длина идентификатора комнаты');
+    window.location.href = '/';
+    return;
+  }
+
+  // Проверяем, что все необходимые элементы существуют
+  if (!boardEl || !roomLinkEl || !copyBtn || !roleInfoEl || !turnInfoEl || !gameStatusEl || !messagesEl || !resignBtn || !restartBtn) {
+    console.error('Не все элементы DOM найдены');
+    return;
+  }
 
   roomLinkEl.value = window.location.href;
   copyBtn.addEventListener('click', async () => {
@@ -29,7 +96,9 @@
   });
 
   const pieceToChar = {
-    p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
+    // Черные фигуры (строчные) - используем те же символы, что и для белых
+    p: '♙', r: '♖', n: '♘', b: '♗', q: '♕', k: '♔',
+    // Белые фигуры (заглавные)
     P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
   };
 
@@ -38,12 +107,6 @@
   let turn = 'w';
   let selectedSquare = null;
   let lastMove = null;
-
-  function showMessage(text) {
-    messagesEl.textContent = text || '';
-    if (!text) return;
-    setTimeout(() => { if (messagesEl.textContent === text) messagesEl.textContent = ''; }, 3000);
-  }
 
   function squaresOrder() {
     const whiteOrder = [];
@@ -142,7 +205,18 @@
         const span = document.createElement('span');
         span.className = 'piece';
         span.textContent = pieceToChar[piece] || '';
-        span.style.color = (piece === piece.toUpperCase()) ? '#222' : '#111';
+        
+        // Различаем белые и черные фигуры по цвету
+        if (piece === piece.toUpperCase()) {
+          // Белые фигуры (заглавные)
+          span.style.color = '#ffffff';
+          span.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)';
+        } else {
+          // Черные фигуры (строчные)
+          span.style.color = '#2c3e50';
+          span.style.textShadow = '0 1px 2px rgba(0,0,0,0.5)';
+        }
+        
         cell.appendChild(span);
       }
 
@@ -190,20 +264,46 @@
   }
 
   resignBtn.addEventListener('click', () => {
+    if (!socket.connected) {
+      showMessage('Нет подключения к серверу');
+      return;
+    }
     if (myColor === 'w' || myColor === 'b') {
       if (confirm('Вы уверены, что хотите сдаться?')) socket.emit('resign');
     }
   });
 
   restartBtn.addEventListener('click', () => {
-    socket.emit('restart');
+    if (socket.connected) {
+      socket.emit('restart');
+    } else {
+      showMessage('Нет подключения к серверу');
+    }
+  });
+
+  socket.on('connecting', () => {
+    console.log('Connecting to server...');
+    showMessage('Подключение к серверу...');
   });
 
   socket.on('connect', () => {
-    socket.emit('join', { roomId });
+    console.log('Connected to server');
+    console.log('Current pathname:', window.location.pathname);
+    console.log('RoomId:', roomId);
+    
+    // Подключаемся к комнате только если есть roomId
+    if (roomId) {
+      console.log('Attempting to join room:', roomId);
+      showMessage('Подключено к серверу');
+      socket.emit('join', { roomId });
+    } else {
+      console.log('No roomId available, waiting for redirect...');
+      showMessage('Ожидание создания комнаты...');
+    }
   });
 
   socket.on('init', (payload) => {
+    console.log('Received init:', payload);
     myColor = payload.color || 's';
     currentFEN = payload.fen;
     turn = payload.turn;
@@ -231,13 +331,62 @@
     showMessage(`Белые: ${w}, Черные: ${b}`);
   });
 
-  socket.on('status_message', (text) => showMessage(text));
-  socket.on('error_message', (text) => showMessage(text));
-  socket.on('invalid_move', (text) => showMessage(text || 'Недопустимый ход'));
+  socket.on('status_message', (text) => {
+    console.log('Status message:', text);
+    showMessage(text);
+  });
+  
+  socket.on('error_message', (text) => {
+    console.error('Error message:', text);
+    showMessage(text);
+    
+    // Если ошибка связана с roomId, перенаправляем на главную страницу
+    if (text.includes('идентификатор') || text.includes('комнаты')) {
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    }
+  });
+  
+  socket.on('invalid_move', (text) => {
+    console.log('Invalid move:', text);
+    showMessage(text || 'Недопустимый ход');
+  });
 
   socket.on('game_over', (data) => {
     const winnerText = data.winner === 'w' ? 'Белые' : 'Черные';
     gameStatusEl.textContent = `Игра окончена. Победитель: ${winnerText} (${data.reason === 'resign' ? 'сдаться' : data.reason})`;
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
+    showMessage('Ошибка подключения к серверу');
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Disconnected:', reason);
+    showMessage('Отключено от сервера');
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log('Reconnection attempt', attemptNumber);
+    showMessage(`Попытка переподключения ${attemptNumber}...`);
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log('Reconnected after', attemptNumber, 'attempts');
+    showMessage('Переподключено к серверу');
+    socket.emit('join', { roomId });
+  });
+
+  socket.on('reconnect_failed', () => {
+    console.log('Reconnection failed');
+    showMessage('Не удалось переподключиться к серверу');
+  });
+
+  socket.on('reconnect_error', (error) => {
+    console.log('Reconnection error:', error);
+    showMessage('Ошибка переподключения');
   });
 
 })();

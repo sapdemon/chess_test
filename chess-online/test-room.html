@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест комнат</title>
+</head>
+<body>
+    <h1>Тест различных сценариев с roomId</h1>
+    
+    <h2>Корректные комнаты:</h2>
+    <ul>
+        <li><a href="/r/abc123">Корректная комната: /r/abc123</a></li>
+        <li><a href="/r/test-room">Комната с дефисом: /r/test-room</a></li>
+        <li><a href="/r/room_123">Комната с подчеркиванием: /r/room_123</a></li>
+    </ul>
+    
+    <h2>Некорректные комнаты (должны перенаправляться):</h2>
+    <ul>
+        <li><a href="/r/ab">Слишком короткая: /r/ab</a></li>
+        <li><a href="/r/room@test">Некорректные символы: /r/room@test</a></li>
+        <li><a href="/r/room test">Пробелы: /r/room test</a></li>
+        <li><a href="/">Главная страница (должна создать новую комнату)</a></li>
+    </ul>
+    
+    <h2>Отладка:</h2>
+    <p>Откройте консоль браузера (F12) для просмотра логов подключения.</p>
+    
+    <script>
+        // Простая проверка roomId
+        function testRoomId() {
+            const path = window.location.pathname;
+            const roomMatch = path.match(/\/r\/([a-zA-Z0-9_-]+)/);
+            const roomId = roomMatch ? roomMatch[1] : '';
+            
+            console.log('Current path:', path);
+            console.log('Extracted roomId:', roomId);
+            console.log('Is valid format:', /^[a-zA-Z0-9_-]+$/.test(roomId));
+            console.log('Length:', roomId.length);
+        }
+        
+        testRoomId();
+    </script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест создания комнат</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест создания комнат</h1>
+    
+    <div class="test-section">
+        <h2>Тест 1: Переход на главную страницу</h2>
+        <p>Этот тест проверит, создается ли новая комната при переходе на главную страницу.</p>
+        <button class="test-button" onclick="testMainPage()">Перейти на главную страницу</button>
+        <div class="log" id="log1"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Тест 2: Проверка редиректа</h2>
+        <p>Этот тест проверит, происходит ли редирект на новую комнату.</p>
+        <button class="test-button" onclick="testRedirect()">Тест редиректа</button>
+        <div class="log" id="log2"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Тест 3: Проверка URL</h2>
+        <p>Текущий URL: <span id="current-url"></span></p>
+        <button class="test-button" onclick="checkURL()">Обновить URL</button>
+        <div class="log" id="log3"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Тест 4: Проверка roomId</h2>
+        <p>Извлеченный roomId: <span id="extracted-roomid"></span></p>
+        <button class="test-button" onclick="checkRoomId()">Проверить roomId</button>
+        <div class="log" id="log4"></div>
+    </div>
+
+    <script>
+        function log(elementId, message) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+        
+        function testMainPage() {
+            log('log1', 'Переход на главную страницу...');
+            window.location.href = '/';
+        }
+        
+        function testRedirect() {
+            log('log2', 'Тестирование редиректа...');
+            fetch('/')
+                .then(response => {
+                    log('log2', `Статус ответа: ${response.status}`);
+                    log('log2', `URL после редиректа: ${response.url}`);
+                    if (response.redirected) {
+                        log('log2', 'Редирект произошел успешно');
+                    } else {
+                        log('log2', 'Редирект не произошел');
+                    }
+                })
+                .catch(error => {
+                    log('log2', `Ошибка: ${error.message}`);
+                });
+        }
+        
+        function checkURL() {
+            const url = window.location.href;
+            const pathname = window.location.pathname;
+            document.getElementById('current-url').textContent = url;
+            log('log3', `Полный URL: ${url}`);
+            log('log3', `Pathname: ${pathname}`);
+        }
+        
+        function checkRoomId() {
+            const pathname = window.location.pathname;
+            const roomMatch = pathname.match(/\/r\/([a-zA-Z0-9_-]+)/);
+            const roomId = roomMatch ? roomMatch[1] : '';
+            
+            document.getElementById('extracted-roomid').textContent = roomId || 'не найден';
+            log('log4', `Pathname: ${pathname}`);
+            log('log4', `RoomId: ${roomId || 'не найден'}`);
+            log('log4', `Regex match: ${roomMatch ? 'да' : 'нет'}`);
+        }
+        
+        // Инициализация
+        checkURL();
+        checkRoomId();
+    </script>
+</body>
+</html>

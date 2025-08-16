@@ -17,15 +17,38 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
   const roomId = nanoid(6);
+  console.log(`Creating new room: ${roomId} for request from ${req.ip}`);
   res.redirect(`/r/${roomId}`);
 });
 
 app.get('/r/:roomId', (req, res) => {
+  console.log(`Serving room page for roomId: ${req.params.roomId}`);
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-room.html'));
+});
+
+app.get('/responsive', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-responsive.html'));
+});
+
+app.get('/room-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-room-creation.html'));
+});
+
+app.get('/pieces-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-pieces.html'));
+});
+
+app.get('/main-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-main-page.html'));
 });
 
 function getOrCreateRoom(roomId) {
   if (!rooms.has(roomId)) {
+    console.log(`Creating new room: ${roomId}`);
     rooms.set(roomId, {
       id: roomId,
       game: new Chess(),
@@ -34,6 +57,8 @@ function getOrCreateRoom(roomId) {
       createdAt: Date.now(),
       status: 'waiting'
     });
+  } else {
+    console.log(`Joining existing room: ${roomId}`);
   }
   return rooms.get(roomId);
 }
@@ -82,10 +107,35 @@ function broadcastRoomState(roomId) {
 
 io.on('connection', socket => {
   socket.on('join', ({ roomId, name }) => {
-    if (!roomId || typeof roomId !== 'string') {
-      socket.emit('error_message', 'Некорректный идентификатор комнаты');
+    console.log(`Socket ${socket.id} attempting to join room: ${roomId}`);
+    
+    // Проверяем наличие и корректность roomId
+    if (!roomId) {
+      console.log(`Socket ${socket.id}: roomId is missing`);
+      socket.emit('error_message', 'Идентификатор комнаты не указан');
       return;
     }
+    
+    if (typeof roomId !== 'string') {
+      console.log(`Socket ${socket.id}: roomId is not a string: ${typeof roomId}`);
+      socket.emit('error_message', 'Идентификатор комнаты должен быть строкой');
+      return;
+    }
+    
+    // Проверяем формат roomId (должен содержать только буквы, цифры, дефисы и подчеркивания)
+    if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
+      console.log(`Socket ${socket.id}: invalid roomId format: ${roomId}`);
+      socket.emit('error_message', 'Некорректный формат идентификатора комнаты');
+      return;
+    }
+    
+    // Проверяем длину roomId (должна быть разумной)
+    if (roomId.length < 3 || roomId.length > 50) {
+      console.log(`Socket ${socket.id}: roomId length invalid: ${roomId.length}`);
+      socket.emit('error_message', 'Идентификатор комнаты должен быть от 3 до 50 символов');
+      return;
+    }
+
     const room = getOrCreateRoom(roomId);
     const color = assignColor(room, socket);
     socket.data.roomId = roomId;
@@ -93,6 +143,7 @@ io.on('connection', socket => {
     socket.data.name = name || null;
 
     socket.join(roomId);
+    console.log(`Socket ${socket.id} successfully joined room ${roomId} as ${color}`);
 
     if (room.players.w && room.players.b) {
       room.status = 'playing';

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест главной страницы</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест главной страницы</h1>
+    
+    <div class="test-section">
+        <h2>Текущее состояние</h2>
+        <div id="current-status" class="status info">
+            Загрузка...
+        </div>
+        <div class="log" id="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Тесты</h2>
+        <button class="test-button" onclick="testMainPage()">Тест главной страницы</button>
+        <button class="test-button" onclick="testRedirect()">Тест редиректа</button>
+        <button class="test-button" onclick="testSocketConnection()">Тест подключения к серверу</button>
+        <button class="test-button" onclick="clearLog()">Очистить лог</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Информация</h2>
+        <p><strong>URL:</strong> <span id="current-url"></span></p>
+        <p><strong>Pathname:</strong> <span id="current-pathname"></span></p>
+        <p><strong>RoomId:</strong> <span id="extracted-roomid"></span></p>
+        <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('current-status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+        
+        function updateInfo() {
+            document.getElementById('current-url').textContent = window.location.href;
+            document.getElementById('current-pathname').textContent = window.location.pathname;
+            document.getElementById('user-agent').textContent = navigator.userAgent;
+            
+            const roomMatch = window.location.pathname.match(/\/r\/([a-zA-Z0-9_-]+)/);
+            const roomId = roomMatch ? roomMatch[1] : 'не найден';
+            document.getElementById('extracted-roomid').textContent = roomId;
+        }
+        
+        function testMainPage() {
+            log('Тестирование главной страницы...');
+            updateStatus('Тестирование главной страницы...', 'info');
+            
+            fetch('/')
+                .then(response => {
+                    log(`Статус ответа: ${response.status}`);
+                    log(`URL после редиректа: ${response.url}`);
+                    log(`Редирект произошел: ${response.redirected}`);
+                    
+                    if (response.redirected) {
+                        updateStatus('Редирект работает корректно!', 'success');
+                        log('Редирект работает корректно');
+                    } else {
+                        updateStatus('Редирект не произошел', 'error');
+                        log('Редирект не произошел');
+                    }
+                })
+                .catch(error => {
+                    log(`Ошибка: ${error.message}`);
+                    updateStatus(`Ошибка: ${error.message}`, 'error');
+                });
+        }
+        
+        function testRedirect() {
+            log('Тестирование редиректа...');
+            updateStatus('Тестирование редиректа...', 'info');
+            
+            // Симулируем переход на главную страницу
+            const originalHref = window.location.href;
+            const originalPathname = window.location.pathname;
+            
+            log(`Текущий URL: ${originalHref}`);
+            log(`Текущий pathname: ${originalPathname}`);
+            
+            if (originalPathname === '/') {
+                log('Уже на главной странице, тестируем редирект...');
+                window.location.href = '/';
+            } else {
+                log('Переходим на главную страницу...');
+                window.location.href = '/';
+            }
+        }
+        
+        function testSocketConnection() {
+            log('Тестирование подключения к серверу...');
+            updateStatus('Тестирование подключения к серверу...', 'info');
+            
+            try {
+                const socket = io({ 
+                    transports: ['websocket', 'polling'],
+                    timeout: 5000,
+                    forceNew: true
+                });
+                
+                socket.on('connect', () => {
+                    log('Подключение к серверу успешно');
+                    updateStatus('Подключение к серверу успешно!', 'success');
+                    socket.disconnect();
+                });
+                
+                socket.on('connect_error', (error) => {
+                    log(`Ошибка подключения: ${error.message}`);
+                    updateStatus(`Ошибка подключения: ${error.message}`, 'error');
+                });
+                
+                socket.on('disconnect', () => {
+                    log('Отключено от сервера');
+                });
+                
+            } catch (error) {
+                log(`Ошибка создания подключения: ${error.message}`);
+                updateStatus(`Ошибка создания подключения: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        // Инициализация
+        updateInfo();
+        updateStatus('Готов к тестированию', 'success');
+        log('Страница загружена');
+        
+        // Обновляем информацию при изменении URL
+        window.addEventListener('popstate', updateInfo);
+    </script>
+</body>
+</html>
