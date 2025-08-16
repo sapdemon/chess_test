@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Онлайн шахматы</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="topbar">
+      <h1>Онлайн шахматы</h1>
+      <div class="room-link">
+        <input id="roomLink" type="text" readonly>
+        <button id="copyLink">Скопировать ссылку</button>
+      </div>
+    </header>
+
+    <div class="info">
+      <div id="roleInfo">Подключение...</div>
+      <div id="turnInfo"></div>
+      <div id="gameStatus"></div>
+    </div>
+
+    <div class="board-wrapper">
+      <div id="board" class="board" aria-label="Шахматная доска" role="grid"></div>
+    </div>
+
+    <div class="controls">
+      <button id="resignBtn" class="danger">Сдаться</button>
+      <button id="restartBtn">Новая партия</button>
+    </div>
+
+    <div id="messages" class="messages"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/client.js"></script>
+</body>
+</html>
