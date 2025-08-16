@@ -18,7 +18,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   const roomId = nanoid(6);
   console.log(`Creating new room: ${roomId} for request from ${req.ip}`);
-  res.redirect(`/r/${roomId}`);
+  console.log(`Redirecting to: /r/${roomId}`);
+  console.log(`Request headers:`, req.headers);
+  console.log(`Request method: ${req.method}`);
+  console.log(`Request URL: ${req.url}`);
+  
+  // Используем 302 редирект для более надежной работы
+  res.status(302).redirect(`/r/${roomId}`);
 });
 
 app.get('/r/:roomId', (req, res) => {
@@ -44,6 +50,28 @@ app.get('/pieces-test', (req, res) => {
 
 app.get('/main-test', (req, res) => {
   res.sendFile(path.join(__dirname, 'test-main-page.html'));
+});
+
+app.get('/redirect-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-redirect.html'));
+});
+
+app.get('/server-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-server.html'));
+});
+
+app.get('/diagnostic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'diagnostic.html'));
+});
+
+app.get('/simple-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'simple-test.html'));
+});
+
+app.get('/create-room', (req, res) => {
+  const roomId = nanoid(6);
+  console.log(`Creating room via AJAX: ${roomId} for request from ${req.ip}`);
+  res.json({ roomId, redirectUrl: `/r/${roomId}` });
 });
 
 function getOrCreateRoom(roomId) {

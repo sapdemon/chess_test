@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Диагностика сервера</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .diagnostic-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Диагностика сервера шахмат</h1>
+    
+    <div class="diagnostic-section">
+        <h2>Состояние сервера</h2>
+        <div id="server-status" class="status info">Проверка...</div>
+        <div class="log" id="server-log"></div>
+    </div>
+    
+    <div class="diagnostic-section">
+        <h2>Тесты подключения</h2>
+        <button class="test-button" onclick="testServerConnection()">Тест подключения к серверу</button>
+        <button class="test-button" onclick="testSocketIO()">Тест Socket.IO</button>
+        <button class="test-button" onclick="testRoomCreation()">Тест создания комнаты</button>
+        <button class="test-button" onclick="clearLogs()">Очистить логи</button>
+    </div>
+    
+    <div class="diagnostic-section">
+        <h2>Информация о браузере</h2>
+        <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+        <p><strong>URL:</strong> <span id="current-url"></span></p>
+        <p><strong>Протокол:</strong> <span id="protocol"></span></p>
+        <p><strong>Хост:</strong> <span id="host"></span></p>
+    </div>
+    
+    <div class="diagnostic-section">
+        <h2>Инструкции по исправлению</h2>
+        <div id="instructions"></div>
+    </div>
+
+    <script>
+        function log(message, elementId = 'server-log') {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info', elementId = 'server-status') {
+            const statusElement = document.getElementById(elementId);
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+        
+        function updateInfo() {
+            document.getElementById('user-agent').textContent = navigator.userAgent;
+            document.getElementById('current-url').textContent = window.location.href;
+            document.getElementById('protocol').textContent = window.location.protocol;
+            document.getElementById('host').textContent = window.location.host;
+        }
+        
+        function testServerConnection() {
+            log('Тестирование подключения к серверу...');
+            updateStatus('Тестирование подключения...', 'info');
+            
+            fetch('/')
+                .then(response => {
+                    log(`Статус ответа: ${response.status}`);
+                    log(`URL после редиректа: ${response.url}`);
+                    log(`Редирект произошел: ${response.redirected}`);
+                    
+                    if (response.redirected) {
+                        updateStatus('✅ Сервер работает! Редирект произошел', 'success');
+                        log('Сервер отвечает корректно');
+                    } else {
+                        updateStatus('⚠️ Сервер отвечает, но редирект не произошел', 'warning');
+                        log('Возможная проблема с редиректом');
+                    }
+                })
+                .catch(error => {
+                    log(`❌ Ошибка подключения: ${error.message}`);
+                    updateStatus(`❌ Сервер недоступен: ${error.message}`, 'error');
+                    showInstructions('server-down');
+                });
+        }
+        
+        function testSocketIO() {
+            log('Тестирование Socket.IO...');
+            updateStatus('Тестирование Socket.IO...', 'info');
+            
+            // Проверяем, доступен ли Socket.IO
+            const script = document.createElement('script');
+            script.src = '/socket.io/socket.io.js';
+            script.onload = () => {
+                log('Socket.IO скрипт загружен');
+                try {
+                    const socket = io({ 
+                        transports: ['websocket', 'polling'],
+                        timeout: 5000,
+                        forceNew: true
+                    });
+                    
+                    socket.on('connect', () => {
+                        log('✅ Socket.IO подключение успешно');
+                        updateStatus('✅ Socket.IO работает!', 'success');
+                        socket.disconnect();
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        log(`❌ Socket.IO ошибка: ${error.message}`);
+                        updateStatus(`❌ Socket.IO ошибка: ${error.message}`, 'error');
+                        showInstructions('socket-error');
+                    });
+                    
+                    socket.on('disconnect', () => {
+                        log('Socket.IO отключен');
+                    });
+                    
+                } catch (error) {
+                    log(`❌ Ошибка создания Socket.IO: ${error.message}`);
+                    updateStatus(`❌ Socket.IO недоступен: ${error.message}`, 'error');
+                }
+            };
+            script.onerror = () => {
+                log('❌ Не удалось загрузить Socket.IO скрипт');
+                updateStatus('❌ Socket.IO недоступен', 'error');
+                showInstructions('socket-not-found');
+            };
+            document.head.appendChild(script);
+        }
+        
+        function testRoomCreation() {
+            log('Тестирование создания комнаты...');
+            updateStatus('Тестирование создания комнаты...', 'info');
+            
+            // Симулируем переход на главную страницу
+            setTimeout(() => {
+                log('Переход на главную страницу для создания комнаты...');
+                window.location.href = '/';
+            }, 1000);
+        }
+        
+        function showInstructions(problem) {
+            const instructionsElement = document.getElementById('instructions');
+            let instructions = '';
+            
+            switch(problem) {
+                case 'server-down':
+                    instructions = `
+                        <h3>Сервер недоступен</h3>
+                        <p>Возможные решения:</p>
+                        <ol>
+                            <li>Убедитесь, что сервер запущен: <code>node server.js</code></li>
+                            <li>Проверьте, что вы в папке <code>chess-online</code></li>
+                            <li>Убедитесь, что порт 3000 свободен</li>
+                            <li>Проверьте, что установлены зависимости: <code>npm install</code></li>
+                        </ol>
+                    `;
+                    break;
+                case 'socket-error':
+                    instructions = `
+                        <h3>Ошибка Socket.IO</h3>
+                        <p>Возможные решения:</p>
+                        <ol>
+                            <li>Перезапустите сервер</li>
+                            <li>Проверьте консоль сервера на ошибки</li>
+                            <li>Убедитесь, что нет блокировки файрвола</li>
+                        </ol>
+                    `;
+                    break;
+                case 'socket-not-found':
+                    instructions = `
+                        <h3>Socket.IO не найден</h3>
+                        <p>Возможные решения:</p>
+                        <ol>
+                            <li>Убедитесь, что сервер запущен</li>
+                            <li>Проверьте, что Socket.IO установлен: <code>npm install socket.io</code></li>
+                            <li>Перезапустите сервер</li>
+                        </ol>
+                    `;
+                    break;
+            }
+            
+            instructionsElement.innerHTML = instructions;
+        }
+        
+        function clearLogs() {
+            document.getElementById('server-log').textContent = '';
+        }
+        
+        // Инициализация
+        updateInfo();
+        updateStatus('Готов к диагностике', 'info');
+        log('Диагностическая страница загружена');
+        
+        // Автоматический тест при загрузке
+        setTimeout(() => {
+            testServerConnection();
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -34,35 +34,32 @@
   if (!roomId) {
     // Если нет roomId и мы не на главной странице, перенаправляем на главную
     if (window.location.pathname !== '/') {
-      window.location.href = '/';
+      console.log('Redirecting to main page from:', window.location.pathname);
+      window.location.replace('/');
       return;
     }
-    // Если мы на главной странице, показываем сообщение и ждем редирект
+    
+    // Если мы на главной странице, показываем сообщение и создаем комнату
+    console.log('On main page, creating new room...');
     showMessage('Создание новой комнаты...');
     
-    // Попробуем сделать запрос к серверу для создания комнаты
-    fetch('/')
-      .then(response => {
-        if (response.redirected) {
-          // Если сервер сделал редирект, переходим по новому URL
-          window.location.href = response.url;
-        } else {
-          // Если редирект не произошел, перезагружаем страницу
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-        }
+    // Попробуем создать комнату через AJAX
+    fetch('/create-room')
+      .then(response => response.json())
+      .then(data => {
+        console.log('Room created via AJAX:', data);
+        showMessage('Комната создана, переход...');
+        window.location.replace(data.redirectUrl);
       })
       .catch(error => {
-        console.error('Ошибка при создании комнаты:', error);
-        // В случае ошибки перезагружаем страницу
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        console.error('AJAX room creation failed:', error);
+        // Fallback: прямой редирект
+        console.log('Falling back to direct redirect...');
+        window.location.replace('/');
       });
     return;
   }
-
+  
   // Дополнительная валидация формата roomId
   if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
     showMessage('Некорректный формат идентификатора комнаты');
